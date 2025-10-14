@@ -1,0 +1,18 @@
+# Arquivos do Ambiente Virtual do Python
+/venv/
+__pycache__/
+
+# Arquivos de banco de dados do Django
+*.sqlite3
+db.sqlite3
+
+# Arquivos do Node.js (Frontend)
+/frontend/node_modules/
+/frontend/build/
+.npm
+npm-debug.log*
+
+# Arquivos de sistema e IDE
+.DS_Store
+.vscode/
+.idea/
