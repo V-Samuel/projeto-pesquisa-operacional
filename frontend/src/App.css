@@ -1,91 +1,136 @@
 /* frontend/src/App.css */
 
-/* Reset e Estilos Globais */
+/* Reset e Fontes */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #f4f7f9;
-  color: #333;
+  font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  background-color: #f0f2f5;
+  color: #1f2937;
 }
 
-.App {
-  text-align: center;
-}
-
-/* Header */
-.app-header {
-  background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
-  padding: 20px;
-  color: white;
-  font-size: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.app-header h1 .fa-cogs {
-  margin-right: 15px;
-}
-
-/* Container Principal (Layout de 2 colunas) */
-.main-container {
+/* Layout Principal com Flexbox */
+.app-container {
   display: flex;
-  flex-wrap: wrap;
-  padding: 20px;
-  gap: 20px;
-  justify-content: center;
+  min-height: 100vh;
 }
 
-.input-section {
-  flex: 2; /* Ocupa 2/3 do espaço */
-  min-width: 400px;
+/* Sidebar */
+.sidebar {
+  width: 280px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border-right: 1px solid #e5e7eb;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
 }
 
-.output-section {
-  flex: 1; /* Ocupa 1/3 do espaço */
-  min-width: 300px;
-  height: fit-content; /* Altura se ajusta ao conteúdo */
+.sidebar-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 2rem;
+  text-align: center
 }
 
-/* Estilo de Cartão para as seções */
+.module-nav {
+  flex-grow: 1;
+}
+
+.module-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.module-nav button {
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: none;
+  background-color: transparent;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.module-nav button:hover {
+  background-color: #f3f4f6;
+}
+
+.module-nav button.active {
+  background-color: #4f46e5;
+  color: white;
+  font-weight: 600;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+/* Conteúdo Principal */
+.main-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+  flex-grow: 1;
+}
+
+/* Estilo de Cartão */
 .card {
   background: #ffffff;
-  border-radius: 8px;
-  padding: 25px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  text-align: left;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 fieldset {
   border: none;
   padding: 0;
   margin: 0;
+  margin-bottom: 24px;
 }
 
 legend {
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #182848;
-  margin-bottom: 15px;
-  padding: 0;
+  color: #111827;
+  margin-bottom: 16px;
 }
 
-/* Estilo dos campos de entrada */
-.objective-inputs, .constraint-row {
+.form-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
 input[type="number"], select {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
   font-size: 1rem;
 }
 
@@ -93,67 +138,67 @@ input[type="number"] {
   width: 60px;
 }
 
-select {
-  cursor: pointer;
-}
-
-label, span {
-  font-weight: 500;
-}
-
-/* Botões */
 .btn-add {
-  background-color: #4b6cb7;
-  color: white;
+  background-color: #e0e7ff;
+  color: #4338ca;
   border: none;
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  font-size: 1.2rem;
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  font-weight: bold;
   cursor: pointer;
-  margin-left: 10px;
 }
 
 .btn-add-constraint {
-  background-color: #f0f0f0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
   padding: 8px 12px;
   cursor: pointer;
-  margin-top: 10px;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+/* Barra de Ação Inferior */
+.action-bar {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .btn-solve {
-  background-color: #28a745;
+  background-color: #16a34a;
   color: white;
   border: none;
-  border-radius: 5px;
-  padding: 15px 30px;
-  font-size: 1.2rem;
-  font-weight: bold;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  width: 100%;
   transition: background-color 0.2s;
 }
 
 .btn-solve:hover {
-  background-color: #218838;
+  background-color: #15803d;
 }
 
 .btn-solve:disabled {
-  background-color: #94d3a2;
+  background-color: #86efac;
   cursor: not-allowed;
 }
 
 /* Seção de Resultado */
-.output-section h2 {
-  margin-top: 0;
-  color: #182848;
+.output-section .result-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.result-content .placeholder {
-  color: #888;
+.status-message {
   font-style: italic;
+  color: #6b7280;
+  margin-bottom: 1rem;
 }
 
 .solution-box ul {
@@ -162,16 +207,38 @@ label, span {
 }
 
 .solution-box li {
-  font-size: 1.2rem;
-  margin-bottom: 10px;
-  background-color: #e9ecef;
-  padding: 10px;
-  border-radius: 4px;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  padding: 8px;
 }
 
-/* Responsividade para telas menores */
-@media (max-width: 800px) {
-  .main-container {
-    flex-direction: column;
-  }
+
+.error-message {
+  color: #dc2626; /* Um tom de vermelho */
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 10px;
+  background-color: #fee2e2; /* Fundo vermelho claro */
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+}
+
+
+.graph-container {
+  margin-top: 20px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 20px;
+}
+
+.graph-container h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.graph-container img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
 }

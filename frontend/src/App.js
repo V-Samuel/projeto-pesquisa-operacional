@@ -3,8 +3,11 @@
 import React, { useState } from 'react';
 import './App.css';
 
-function App() {
-  // --- Estados para guardar os dados do formulário (Lógica inalterada) ---
+export default function App() {
+  // --- Estados do Novo Layout ---
+  const [activeModule, setActiveModule] = useState('auto'); // 'auto' é o padrão
+
+  // --- Estados Funcionais que já tínhamos ---
   const [objective, setObjective] = useState('max');
   const [objectiveCoeffs, setObjectiveCoeffs] = useState(['', '']);
   const [constraints, setConstraints] = useState([
@@ -14,7 +17,7 @@ function App() {
   const [statusMessage, setStatusMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // --- Funções para ATUALIZAR o estado (Lógica inalterada) ---
+  // --- Funções de manipulação do formulário (Lógica inalterada) ---
   const handleObjectiveCoeffChange = (index, value) => {
     const newCoeffs = [...objectiveCoeffs];
     newCoeffs[index] = value;
@@ -31,7 +34,6 @@ function App() {
     setConstraints(newConstraints);
   };
 
-  // --- Funções para ADICIONAR (Lógica inalterada) ---
   const handleAddVariable = () => {
     setObjectiveCoeffs([...objectiveCoeffs, '']);
     setConstraints(constraints.map(c => ({
@@ -46,12 +48,12 @@ function App() {
       { coefficients: Array(objectiveCoeffs.length).fill(''), sign: '<=', rhs: '' }
     ]);
   };
-  
-  // --- Função para ENVIAR os dados para a API (Lógica inalterada, com adição de isLoading) ---
+
+  // --- Função de Envio para a API (Agora envia o método escolhido) ---
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSolution(null);
-    setIsLoading(true); // Ativa o estado de carregamento
+    setIsLoading(true);
     setStatusMessage('Resolvendo...');
 
     const problemData = {
@@ -61,7 +63,9 @@ function App() {
         coefficients: c.coefficients.map(coef => parseFloat(coef) || 0),
         sign: c.sign,
         rhs: parseFloat(c.rhs) || 0
-      }))
+      })),
+      // Adicionamos o método escolhido no payload da API!
+      method: activeModule
     };
 
     try {
@@ -78,113 +82,126 @@ function App() {
         setStatusMessage(`Erro: ${result.error || 'Ocorreu um problema.'}`);
       }
     } catch (error) {
-      console.error('Falha na comunicação com a API:', error);
       setStatusMessage('Erro: Não foi possível conectar ao servidor.');
     } finally {
-      setIsLoading(false); // Desativa o estado de carregamento
+      setIsLoading(false);
     }
   };
 
-  // --- Renderização da Página (NOVO LAYOUT) ---
+  // --- JSX do Novo Layout ---
   return (
-    <div className="App">
-      <header className="app-header">
-        <h1><i className="fas fa-cogs"></i> Resolvedor de P.O</h1>
-      </header>
-      
-      <main className="main-container">
-        <div className="input-section">
-          <form onSubmit={handleSubmit}>
-            {/* Função Objetivo */}
-            <fieldset className="card">
-              <legend>Função Objetivo</legend>
-              <div className="objective-inputs">
-                <select value={objective} onChange={(e) => setObjective(e.target.value)}>
-                  <option value="max">Maximizar</option>
-                  <option value="min">Minimizar</option>
-                </select>
-                <span>Z =</span>
-                {objectiveCoeffs.map((coeff, index) => (
-                  <React.Fragment key={index}>
-                    <input
-                      type="number"
-                      step="any"
-                      value={coeff}
-                      onChange={(e) => handleObjectiveCoeffChange(index, e.target.value)}
-                      placeholder={`x${index + 1}`}
-                    />
-                    <label>{`x${index + 1}`}</label>
-                    {index < objectiveCoeffs.length - 1 && <span>+</span>}
-                  </React.Fragment>
-                ))}
-                <button type="button" className="btn-add" onClick={handleAddVariable}>+</button>
-              </div>
-            </fieldset>
+    <div className="app-container">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <h2 className="sidebar-title">ORION</h2>
+        <nav className="module-nav">
+          <ul>
+            <li><button onClick={() => setActiveModule('auto')} className={activeModule === 'auto' ? 'active' : ''}>🤖 Automático</button></li>
+            <li><button onClick={() => setActiveModule('graphical')} className={activeModule === 'graphical' ? 'active' : ''}>📈 Gráfico</button></li>
+            <li><button onClick={() => setActiveModule('simplex')} className={activeModule === 'simplex' ? 'active' : ''}>📐 Simplex</button></li>
+            <li><button onClick={() => setActiveModule('big_m')} className={activeModule === 'big_m' ? 'active' : ''}>🧩 Big M</button></li>
+            <li><button onClick={() => setActiveModule('two_phase')} className={activeModule === 'two_phase' ? 'active' : ''}>2‑Fases</button></li>
+          </ul>
+        </nav>
+        <div className="sidebar-footer">
+          <p>Escolha o módulo e insira os dados do problema.</p>
+        </div>
+      </aside>
 
-            {/* Restrições */}
-            <fieldset className="card">
-              <legend>Restrições</legend>
-              {constraints.map((constraint, c_index) => (
-                <div key={c_index} className="constraint-row">
-                  {constraint.coefficients.map((coeff, v_index) => (
-                    <React.Fragment key={v_index}>
-                      <input
-                        type="number"
-                        step="any"
-                        value={coeff}
-                        onChange={(e) => handleConstraintChange(c_index, 'coefficient', e.target.value, v_index)}
-                        placeholder={`x${v_index + 1}`}
-                      />
-                      <label>{`x${v_index + 1}`}</label>
-                      {v_index < constraint.coefficients.length - 1 && <span>+</span>}
+      {/* Main Content */}
+      <main className="main-content">
+        <form onSubmit={handleSubmit}>
+          <div className="workspace">
+            {/* Seção de Entrada */}
+            <div className="input-section card">
+              <fieldset>
+                <legend>Função Objetivo</legend>
+                <div className="form-row">
+                  <select value={objective} onChange={(e) => setObjective(e.target.value)}>
+                    <option value="max">Maximizar</option>
+                    <option value="min">Minimizar</option>
+                  </select>
+                  <span>Z =</span>
+                  {objectiveCoeffs.map((coeff, index) => (
+                    <React.Fragment key={index}>
+                      <input type="number" step="any" value={coeff} onChange={(e) => handleObjectiveCoeffChange(index, e.target.value)} placeholder={`x${index + 1}`} />
+                      <label>{`x${index + 1}`}</label>
+                      {index < objectiveCoeffs.length - 1 && <span>+</span>}
                     </React.Fragment>
                   ))}
-                  <select 
-                    value={constraint.sign} 
-                    onChange={(e) => handleConstraintChange(c_index, 'sign', e.target.value)}>
-                    <option value="<=">&le;</option>
-                    <option value=">=">&ge;</option>
-                    <option value="=">=</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="any"
-                    value={constraint.rhs}
-                    onChange={(e) => handleConstraintChange(c_index, 'rhs', e.target.value)}
-                    placeholder="RHS"
-                  />
+                  <button type="button" className="btn-add" onClick={handleAddVariable}>+</button>
                 </div>
-              ))}
-              <button type="button" className="btn-add-constraint" onClick={handleAddConstraint}>Adicionar Restrição</button>
-            </fieldset>
+              </fieldset>
 
+              <fieldset>
+                <legend>Restrições</legend>
+                {constraints.map((constraint, c_index) => (
+                  <div key={c_index} className="form-row">
+                    {constraint.coefficients.map((coeff, v_index) => (
+                      <React.Fragment key={v_index}>
+                        <input type="number" step="any" value={coeff} onChange={(e) => handleConstraintChange(c_index, 'coefficient', e.target.value, v_index)} placeholder={`x${v_index + 1}`} />
+                        <label>{`x${v_index + 1}`}</label>
+                        {v_index < constraint.coefficients.length - 1 && <span>+</span>}
+                      </React.Fragment>
+                    ))}
+                    <select value={constraint.sign} onChange={(e) => handleConstraintChange(c_index, 'sign', e.target.value)}>
+                      <option value="<=">&le;</option>
+                      <option value=">=">&ge;</option>
+                      <option value="=">=</option>
+                    </select>
+                    <input type="number" step="any" value={constraint.rhs} onChange={(e) => handleConstraintChange(c_index, 'rhs', e.target.value)} placeholder="RHS" />
+                  </div>
+                ))}
+                <button type="button" className="btn-add-constraint" onClick={handleAddConstraint}>Adicionar Restrição</button>
+              </fieldset>
+            </div>
+
+            <div className="output-section card">
+              <h2>Resultado</h2>
+              <hr />
+              <div className="result-content">
+                <p className="status-message">{statusMessage}</p>
+
+                {solution && (
+                  <div className="solution-box">
+                    {solution.error ? (
+                      <p className="error-message">{solution.error}</p>
+                    ) : (
+                      <>
+                        {/* Exibe a lista de resultados */}
+                        <ul>
+                          {Object.entries(solution)
+                            .filter(([key]) => key !== 'graph_base64') // Não exibe a chave do gráfico na lista
+                            .map(([key, value]) => (
+                              <li key={key}>
+                                <strong>{key}:</strong> {typeof value === 'number' ? value.toFixed(4) : value}
+                              </li>
+                            ))
+                          }
+                        </ul>
+
+                        {/* Exibe a imagem do gráfico se ela existir */}
+                        {solution.graph_base64 && (
+                          <div className="graph-container">
+                            <h4>Visualização Gráfica</h4>
+                            <img src={`data:image/png;base64,${solution.graph_base64}`} alt="Gráfico da Solução" />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="action-bar">
             <button type="submit" className="btn-solve" disabled={isLoading}>
               {isLoading ? 'Resolvendo...' : 'Resolver'}
             </button>
-          </form>
-        </div>
-
-        <div className="output-section card">
-          <h2>Resultado</h2>
-          <hr />
-          <div className="result-content">
-            {!solution && <p className="placeholder">{statusMessage || 'O resultado aparecerá aqui...'}</p>}
-            {solution && (
-              <div className="solution-box">
-                <ul>
-                  {Object.entries(solution).map(([key, value]) => (
-                    <li key={key}>
-                      <strong>{key}:</strong> {value.toFixed(4)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
-        </div>
+        </form>
       </main>
     </div>
   );
 }
-
-export default App;

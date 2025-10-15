@@ -35,7 +35,10 @@ def solve_problem(request):
         )
 
         # Resolve o problema
-        status_msg, solution = solver.solve(method='auto')
+        method_from_frontend = data.get('method', 'auto')
+
+        # Passa o método escolhido para o solver
+        status_msg, solution = solver.solve(method=method_from_frontend)
 
         # Prepara a resposta
         if solution:
