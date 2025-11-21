@@ -1,15 +1,15 @@
-# solver_api/main_solver.py
+
 
 import numpy as np
 from itertools import combinations
 import io
 import base64
 import matplotlib
-matplotlib.use('Agg')  # Configura o Matplotlib para não usar uma UI gráfica
+matplotlib.use('Agg')  
 import matplotlib.pyplot as plt
 
 class LPSolver:
-    # ... (O __init__ e as outras funções de solve permanecem as mesmas) ...
+    
     def __init__(self, objective_function, constraints, objective='max'):
         self.objective_function = np.array(objective_function, dtype=float)
         self.constraints = constraints
@@ -44,10 +44,7 @@ class LPSolver:
             return "Método desconhecido", {"error": f"O método '{method}' não é reconhecido pelo solver."}
 
     def _generate_graph_image(self, feasible_points, best_point):
-        """
-        NOVA FUNÇÃO: Gera a imagem do gráfico da solução.
-        """
-        # Define os limites do gráfico
+        
         max_val = max(max(p) for p in feasible_points) * 1.2 if feasible_points else 10
         x = np.linspace(0, max_val, 400)
         
@@ -57,7 +54,7 @@ class LPSolver:
         plt.xlabel("x1")
         plt.ylabel("x2")
         
-        # Plota as linhas das restrições
+        
         for coeffs, sign, rhs in self.constraints:
             c1, c2 = coeffs
             if c2 != 0:
@@ -66,13 +63,13 @@ class LPSolver:
             elif c1 != 0:
                 plt.axvline(x=rhs/c1, label=f'{c1}x1 {sign} {rhs}')
 
-        # Pinta a região viável
+        
         if feasible_points:
             feasible_points.sort(key=lambda p: np.arctan2(p[1] - np.mean([fp[1] for fp in feasible_points]), p[0] - np.mean([fp[0] for fp in feasible_points])))
             polygon = plt.Polygon(feasible_points, color='skyblue', alpha=0.5)
             plt.gca().add_patch(polygon)
 
-        # Plota os pontos
+        
         fp_array = np.array(feasible_points)
         if len(fp_array) > 0:
             plt.plot(fp_array[:, 0], fp_array[:, 1], 'ro', label='Vértices Viáveis')
@@ -83,20 +80,20 @@ class LPSolver:
         plt.grid(True)
         plt.legend()
         
-        # Salva a imagem em memória
+        
         buf = io.BytesIO()
         plt.savefig(buf, format='png')
         buf.seek(0)
         
-        # Converte para Base64 e decodifica para string
+        
         image_base64 = base64.b64encode(buf.read()).decode('utf-8')
         buf.close()
-        plt.close() # Fecha a figura para liberar memória
+        plt.close() 
         
         return image_base64
 
     def _solve_graphical(self):
-        # ... (a lógica para encontrar os pontos permanece a mesma) ...
+        
         equations = []
         for coeffs, _, rhs in self.constraints:
             equations.append(np.array(list(coeffs) + [rhs], dtype=float))
@@ -141,7 +138,7 @@ class LPSolver:
         solution = {f'x{i+1}': v for i, v in enumerate(best_point)}
         solution['Z'] = best_value
 
-        # ADIÇÃO: Gera a imagem e a adiciona na solução
+        
         try:
             solution['graph_base64'] = self._generate_graph_image(feasible_points, best_point)
         except Exception as e:
@@ -150,8 +147,7 @@ class LPSolver:
 
         return "Solução ótima encontrada.", solution
 
-    # --- O RESTO DAS FUNÇÕES (_build_tableau, _simplex_iteration, etc.) CONTINUA AQUI ---
-    # (Copie e cole o resto das suas funções a partir daqui para manter o arquivo completo)
+    
     def _build_tableau(self, use_big_m=False, m_value=1e6):
         num_slack = sum(1 for c in self.constraints if c[1] == '<=')
         num_surplus = sum(1 for c in self.constraints if c[1] == '>=')

@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import './App.css';
 
 export default function App() {
-  // --- Estados do Novo Layout ---
-  const [activeModule, setActiveModule] = useState('auto'); // 'auto' é o padrão
+ 
+  const [activeModule, setActiveModule] = useState('auto'); 
 
-  // --- Estados Funcionais que já tínhamos ---
+  
   const [objective, setObjective] = useState('max');
   const [objectiveCoeffs, setObjectiveCoeffs] = useState(['', '']);
   const [constraints, setConstraints] = useState([
@@ -17,7 +17,7 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // --- Funções de manipulação do formulário (Lógica inalterada) ---
+  
   const handleObjectiveCoeffChange = (index, value) => {
     const newCoeffs = [...objectiveCoeffs];
     newCoeffs[index] = value;
@@ -49,7 +49,7 @@ export default function App() {
     ]);
   };
 
-  // --- Função de Envio para a API (Agora envia o método escolhido) ---
+  
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSolution(null);
@@ -64,7 +64,7 @@ export default function App() {
         sign: c.sign,
         rhs: parseFloat(c.rhs) || 0
       })),
-      // Adicionamos o método escolhido no payload da API!
+      
       method: activeModule
     };
 
@@ -88,7 +88,7 @@ export default function App() {
     }
   };
 
-  // --- JSX do Novo Layout ---
+  
   return (
     <div className="app-container">
       {/* Sidebar */}
@@ -108,11 +108,11 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content */}
+      
       <main className="main-content">
         <form onSubmit={handleSubmit}>
           <div className="workspace">
-            {/* Seção de Entrada */}
+            
             <div className="input-section card">
               <fieldset>
                 <legend>Função Objetivo</legend>
@@ -168,10 +168,10 @@ export default function App() {
                       <p className="error-message">{solution.error}</p>
                     ) : (
                       <>
-                        {/* Exibe a lista de resultados */}
+                        
                         <ul>
                           {Object.entries(solution)
-                            .filter(([key]) => key !== 'graph_base64') // Não exibe a chave do gráfico na lista
+                            .filter(([key]) => key !== 'graph_base64') 
                             .map(([key, value]) => (
                               <li key={key}>
                                 <strong>{key}:</strong> {typeof value === 'number' ? value.toFixed(4) : value}
@@ -180,7 +180,7 @@ export default function App() {
                           }
                         </ul>
 
-                        {/* Exibe a imagem do gráfico se ela existir */}
+                        
                         {solution.graph_base64 && (
                           <div className="graph-container">
                             <h4>Visualização Gráfica</h4>

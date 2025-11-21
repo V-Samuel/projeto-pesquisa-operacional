@@ -1,6 +1,6 @@
-/* frontend/src/App.css */
 
-/* Reset e Fontes */
+
+
 body {
   margin: 0;
   font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
@@ -8,13 +8,13 @@ body {
   color: #1f2937;
 }
 
-/* Layout Principal com Flexbox */
+
 .app-container {
   display: flex;
   min-height: 100vh;
 }
 
-/* Sidebar */
+
 .sidebar {
   width: 280px;
   background-color: #ffffff;
@@ -75,7 +75,7 @@ body {
   color: #6b7280;
 }
 
-/* Conteúdo Principal */
+
 .main-content {
   flex: 1;
   padding: 24px;
@@ -95,7 +95,7 @@ form {
   flex-grow: 1;
 }
 
-/* Estilo de Cartão */
+
 .card {
   background: #ffffff;
   border-radius: 12px;
@@ -160,7 +160,7 @@ input[type="number"] {
   font-weight: 500;
 }
 
-/* Barra de Ação Inferior */
+
 .action-bar {
   margin-top: 24px;
   display: flex;
@@ -188,7 +188,7 @@ input[type="number"] {
   cursor: not-allowed;
 }
 
-/* Seção de Resultado */
+
 .output-section .result-content {
   flex-grow: 1;
   display: flex;
@@ -214,11 +214,11 @@ input[type="number"] {
 
 
 .error-message {
-  color: #dc2626; /* Um tom de vermelho */
+  color: #dc2626; 
   font-weight: 600;
   font-size: 1.1rem;
   padding: 10px;
-  background-color: #fee2e2; /* Fundo vermelho claro */
+  background-color: #fee2e2; 
   border-radius: 6px;
   border: 1px solid #fecaca;
 }
