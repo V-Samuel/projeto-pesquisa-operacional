@@ -241,3 +241,54 @@ input[type="number"] {
   border-radius: 8px;
   border: 1px solid #d1d5db;
 }
+
+/* Estilos para as Tabelas (Simplex Iterations) */
+.iterations-container {
+  margin-top: 30px;
+}
+
+.iteration-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.iteration-header {
+  background-color: #f8fafc;
+  padding: 10px 15px;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: bold;
+  color: #1e293b;
+  display: flex;
+  justify-content: space-between;
+}
+
+.tableau-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tableau-table th, .tableau-table td {
+  padding: 8px;
+  text-align: center;
+  border-bottom: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
+}
+
+.tableau-table th {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+.tableau-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Destaque para a célula pivô (opcional, se quisermos implementar depois) */
+.highlight-pivot {
+  background-color: #fef08a; /* Amarelo claro */
+  font-weight: bold;
+}
