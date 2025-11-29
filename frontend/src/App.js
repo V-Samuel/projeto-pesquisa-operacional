@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// --- Função Auxiliar para converter Base64 em Arquivo (Blob) ---
+// --- Função Auxiliar Blob ---
 const base64ToBlob = (base64Data) => {
   const byteCharacters = atob(base64Data);
   const byteNumbers = new Array(byteCharacters.length);
@@ -12,99 +12,94 @@ const base64ToBlob = (base64Data) => {
   return new Blob([byteArray], { type: 'image/gif' });
 };
 
-export default function App() {
-  // --- Estados ---
-  const [activeModule, setActiveModule] = useState('auto'); 
-  const [useIntegerSolution, setUseIntegerSolution] = useState(false);
+// --- Componente Recursivo para desenhar a Árvore (Visualização B&B) ---
+const TreeNodeCircle = ({ node, onSelect }) => {
+  if (!node) return null;
 
+  const getStatusClass = (status) => {
+    if (status === 'integer') return 'integer';
+    if (status === 'infeasible') return 'infeasible';
+    return 'processing'; 
+  };
+
+  return (
+    <li>
+      <div 
+        className={`tree-node-circle ${getStatusClass(node.status)}`}
+        onMouseEnter={() => onSelect(node)}
+        onClick={() => onSelect(node)}
+      >
+        {node.branch_info && <span className="branch-label">{node.branch_info}</span>}
+        <div className="circle-content">
+          {node.id === 'P0' ? 'Raiz' : node.id.split('.').pop()}
+        </div>
+      </div>
+      {node.children && node.children.length > 0 && (
+        <ul>
+          {node.children.map((child) => (
+            <TreeNodeCircle key={child.id} node={child} onSelect={onSelect} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+};
+
+export default function App() {
+  const [activeModule, setActiveModule] = useState('auto'); 
   const [objective, setObjective] = useState('max');
   const [objectiveCoeffs, setObjectiveCoeffs] = useState(['', '']);
-  const [constraints, setConstraints] = useState([
-    { coefficients: ['', ''], sign: '<=', rhs: '' }
-  ]);
+  const [constraints, setConstraints] = useState([{ coefficients: ['', ''], sign: '<=', rhs: '' }]);
   const [solution, setSolution] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Estado para armazenar a URL temporária do GIF
   const [graphUrl, setGraphUrl] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
 
-  // --- Handlers de Entrada ---
   const handleObjectiveCoeffChange = (index, value) => {
-    const newCoeffs = [...objectiveCoeffs];
-    newCoeffs[index] = value;
-    setObjectiveCoeffs(newCoeffs);
+    const newCoeffs = [...objectiveCoeffs]; newCoeffs[index] = value; setObjectiveCoeffs(newCoeffs);
   };
-
   const handleConstraintChange = (c_index, field, value, v_index = null) => {
     const newConstraints = [...constraints];
-    if (field === 'coefficient') {
-      newConstraints[c_index].coefficients[v_index] = value;
-    } else {
-      newConstraints[c_index][field] = value;
-    }
+    if (field === 'coefficient') newConstraints[c_index].coefficients[v_index] = value;
+    else newConstraints[c_index][field] = value;
     setConstraints(newConstraints);
   };
-
   const handleAddVariable = () => {
     setObjectiveCoeffs([...objectiveCoeffs, '']);
-    setConstraints(constraints.map(c => ({
-      ...c,
-      coefficients: [...c.coefficients, '']
-    })));
+    setConstraints(constraints.map(c => ({ ...c, coefficients: [...c.coefficients, ''] })));
   };
-
   const handleAddConstraint = () => {
-    setConstraints([
-      ...constraints,
-      { coefficients: Array(objectiveCoeffs.length).fill(''), sign: '<=', rhs: '' }
-    ]);
+    setConstraints([...constraints, { coefficients: Array(objectiveCoeffs.length).fill(''), sign: '<=', rhs: '' }]);
   };
 
-  // --- LÓGICA DE IMAGEM E REPLAY ---
-  
-  // Gera uma nova URL de Blob a partir do Base64
-  const generateGraphUrl = (b64Data) => {
-    if (!b64Data) return null;
-    const blob = base64ToBlob(b64Data);
-    return URL.createObjectURL(blob);
-  };
-
-  // Quando chega uma solução nova, gera a primeira URL
+  // Blob URL Logic
   useEffect(() => {
     if (solution && solution.graph_base64) {
-      const url = generateGraphUrl(solution.graph_base64);
+      const blob = base64ToBlob(solution.graph_base64);
+      const url = URL.createObjectURL(blob);
       setGraphUrl(url);
-      
-      // Limpeza de memória quando o componente desmontar ou mudar
       return () => URL.revokeObjectURL(url);
     } else {
       setGraphUrl(null);
     }
+    if (solution && solution.tree_data) {
+        setSelectedNode(solution.tree_data);
+    }
   }, [solution]);
 
-  // Função de Replay: Gera um NOVO endereço para o MESMO arquivo
   const handleReplayGraph = () => {
     if (solution && solution.graph_base64) {
-      // 1. Limpa a URL atual (opcional, mas bom para garantir visualmente)
       setGraphUrl(null);
-      
-      // 2. Cria uma nova URL única quase instantaneamente
       setTimeout(() => {
-        const newUrl = generateGraphUrl(solution.graph_base64);
-        setGraphUrl(newUrl);
-      }, 10); 
+        const blob = base64ToBlob(solution.graph_base64);
+        setGraphUrl(URL.createObjectURL(blob));
+      }, 10);
     }
   };
 
-  // --- Envio para API ---
   const handleSubmit = async (event) => {
-    event.preventDefault();
-    setSolution(null);
-    setGraphUrl(null); 
-    setIsLoading(true);
-    setStatusMessage('Resolvendo...');
-
+    event.preventDefault(); setSolution(null); setIsLoading(true); setStatusMessage('Resolvendo...');
     const problemData = {
       objective: objective,
       objective_function: objectiveCoeffs.map(c => parseFloat(c) || 0),
@@ -113,96 +108,64 @@ export default function App() {
         sign: c.sign,
         rhs: parseFloat(c.rhs) || 0
       })),
-      method: activeModule,
-      integer_mode: useIntegerSolution
+      method: activeModule
     };
-
     try {
       const response = await fetch('http://127.0.0.1:8000/api/solve/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(problemData),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(problemData),
       });
       const result = await response.json();
-      if (response.ok) {
-        setStatusMessage(result.status);
-        setSolution(result.solution);
-      } else {
-        setStatusMessage(`Erro: ${result.error || 'Ocorreu um problema.'}`);
-      }
-    } catch (error) {
-      setStatusMessage('Erro: Não foi possível conectar ao servidor.');
-    } finally {
-      setIsLoading(false);
-    }
+      if (response.ok) { 
+          setStatusMessage(result.status); 
+          setSolution(result.solution); 
+      } else { setStatusMessage(`Erro: ${result.error || 'Ocorreu um problema.'}`); }
+    } catch (error) { setStatusMessage('Erro: Conexão falhou.'); } finally { setIsLoading(false); }
   };
 
   const isDualMode = activeModule === 'dual';
+  const isBnBMode = activeModule === 'branch_and_bound';
+  const ignoredKeys = ['graph_base64', 'iterations', 'error', 'integer_solution', 'dual_solution', 'status_complement', 'tableau', 'basis', 'tree_data', 'Z'];
 
-  // --- Renderização ---
   return (
     <div className="app-container">
-      {/* Sidebar */}
       <aside className="sidebar">
         <h2 className="sidebar-title">ORION</h2>
         <nav className="module-nav">
           <ul>
-            <li><button onClick={() => setActiveModule('auto')} className={activeModule === 'auto' ? 'active' : ''}>🤖 Automático</button></li>
-            <li><button onClick={() => setActiveModule('graphical')} className={activeModule === 'graphical' ? 'active' : ''}>📈 Gráfico</button></li>
-            <li><button onClick={() => setActiveModule('simplex')} className={activeModule === 'simplex' ? 'active' : ''}>📐 Simplex</button></li>
-            <li><button onClick={() => setActiveModule('big_m')} className={activeModule === 'big_m' ? 'active' : ''}>🧩 Big M</button></li>
+            <li><button onClick={() => setActiveModule('auto')} className={activeModule === 'auto' ? 'active' : ''}>Automático</button></li>
+            <li><button onClick={() => setActiveModule('graphical')} className={activeModule === 'graphical' ? 'active' : ''}>Gráfico</button></li>
+            <li><button onClick={() => setActiveModule('simplex')} className={activeModule === 'simplex' ? 'active' : ''}>Simplex</button></li>
+            <li><button onClick={() => setActiveModule('big_m')} className={activeModule === 'big_m' ? 'active' : ''}>Big M</button></li>
             <li><button onClick={() => setActiveModule('two_phase')} className={activeModule === 'two_phase' ? 'active' : ''}>2‑Fases</button></li>
-            <li><button onClick={() => setActiveModule('dual')} className={activeModule === 'dual' ? 'active' : ''} style={{color: '#0ea5e9'}}>☯️ Dual</button></li>
+            <li><button onClick={() => setActiveModule('dual')} className={activeModule === 'dual' ? 'active' : ''} >Dual</button></li>
+            <li><button onClick={() => setActiveModule('branch_and_bound')} className={activeModule === 'branch_and_bound' ? 'active' : ''}>Branch & Bound</button></li>
           </ul>
         </nav>
-        
-        {/* Checkbox Solução Inteira */}
-        <div className="sidebar-config" style={{marginTop: '20px', padding: '15px', borderTop: '1px solid #eee'}}>
-          <label style={{display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer'}}>
-            <input 
-              type="checkbox" 
-              checked={useIntegerSolution}
-              onChange={(e) => setUseIntegerSolution(e.target.checked)}
-              style={{width: '18px', height: '18px'}}
-            />
-            <span style={{fontWeight: '500'}}>Buscar Solução Inteira</span>
-          </label>
-          <p style={{fontSize: '0.8rem', color: '#666', marginTop: '5px'}}>
-            (Plota ponto inteiro e calcula via Branch & Bound)
-          </p>
-        </div>
-
-        <div className="sidebar-footer">
-          <p>Escolha o módulo e insira os dados do problema.</p>
-        </div>
+        <div className="sidebar-footer"><p>Selecione o módulo e insira os dados.</p></div>
       </aside>
 
-      {/* Main Content */}
       <main className="main-content">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{display:'contents'}}>
+          
           <div className="workspace">
-            
-            {/* Área de Entrada */}
+            {/* COLUNA 1: INPUTS */}
             <div className="input-section card">
               <fieldset>
                 <legend>Função Objetivo</legend>
                 <div className="form-row">
                   <select value={objective} onChange={(e) => setObjective(e.target.value)}>
-                    <option value="max">Maximizar</option>
-                    <option value="min">Minimizar</option>
+                    <option value="max">Maximizar</option><option value="min">Minimizar</option>
                   </select>
                   <span>Z =</span>
                   {objectiveCoeffs.map((coeff, index) => (
                     <React.Fragment key={index}>
                       <input type="number" step="any" value={coeff} onChange={(e) => handleObjectiveCoeffChange(index, e.target.value)} placeholder={`x${index + 1}`} />
-                      <label>{`x${index + 1}`}</label>
-                      {index < objectiveCoeffs.length - 1 && <span>+</span>}
+                      <label>{`x${index + 1}`}</label> {index < objectiveCoeffs.length - 1 && <span>+</span>}
                     </React.Fragment>
                   ))}
                   <button type="button" className="btn-add" onClick={handleAddVariable}>+</button>
                 </div>
               </fieldset>
-
               <fieldset>
                 <legend>Restrições</legend>
                 {constraints.map((constraint, c_index) => (
@@ -210,167 +173,158 @@ export default function App() {
                     {constraint.coefficients.map((coeff, v_index) => (
                       <React.Fragment key={v_index}>
                         <input type="number" step="any" value={coeff} onChange={(e) => handleConstraintChange(c_index, 'coefficient', e.target.value, v_index)} placeholder={`x${v_index + 1}`} />
-                        <label>{`x${v_index + 1}`}</label>
-                        {v_index < constraint.coefficients.length - 1 && <span>+</span>}
+                        <label>{`x${v_index + 1}`}</label> {v_index < constraint.coefficients.length - 1 && <span>+</span>}
                       </React.Fragment>
                     ))}
                     <select value={constraint.sign} onChange={(e) => handleConstraintChange(c_index, 'sign', e.target.value)}>
-                      <option value="<=">&le;</option>
-                      <option value=">=">&ge;</option>
-                      <option value="=">=</option>
+                      <option value="<=">&le;</option><option value=">=">&ge;</option><option value="=">=</option>
                     </select>
                     <input type="number" step="any" value={constraint.rhs} onChange={(e) => handleConstraintChange(c_index, 'rhs', e.target.value)} placeholder="RHS" />
                   </div>
                 ))}
                 <button type="button" className="btn-add-constraint" onClick={handleAddConstraint}>Adicionar Restrição</button>
+                <div style={{marginTop:'20px', textAlign:'right'}}>
+                    <button type="submit" className="btn-solve" disabled={isLoading}>{isLoading ? '...' : 'Resolver'}</button>
+                </div>
               </fieldset>
             </div>
 
-            {/* Área de Resultado */}
-            <div className="output-section card">
-              <h2>Resultado</h2>
-              <hr />
-              <div className="result-content">
-                <p className="status-message">{statusMessage}</p>
+            {/* COLUNA 2: RESULTADOS PADRÃO (Oculta se for B&B) */}
+            {!isBnBMode && (
+                <div className="output-section card">
+                <h2>Resultado</h2> <hr />
+                <div className="result-content">
+                    <p className="status-message">{statusMessage}</p>
+                    {solution && (
+                    <div className="solution-box">
+                        {solution.error ? <p className="error-message">{solution.error}</p> : (
+                        <>
+                            {!isDualMode && (
+                            <div className="final-solution-summary" style={{background: '#dcfce7', padding:'15px', borderRadius:'8px', marginBottom: '20px'}}>
+                                <h3>Solução Final:</h3>
+                                {solution.status_complement && <div style={{color: '#854d0e', fontWeight:'bold'}}>⚠️ {solution.status_complement}</div>}
+                                <ul>
+                                    <li><strong>Z:</strong> {solution.Z}</li>
+                                    {Object.entries(solution).filter(([k]) => !ignoredKeys.includes(k)).map(([k,v]) => <li key={k}><strong>{k}:</strong> {v}</li>)}
+                                </ul>
+                            </div>
+                            )}
 
-                {solution && (
-                  <div className="solution-box">
-                    {solution.error ? (
-                      <p className="error-message">{solution.error}</p>
-                    ) : (
-                      <>
-                        {/* 1. Solução Primal */}
-                        {!isDualMode && (
-                          <div className="final-solution-summary" style={{marginBottom: '20px', padding: '10px', background: '#dcfce7', borderRadius: '6px'}}>
-                              <h3>Solução Final (Primal):</h3>
-                              {solution.status_complement && (
-                                <div style={{color: '#854d0e', backgroundColor: '#fef9c3', padding: '5px', marginBottom: '10px', borderRadius: '4px', fontWeight: 'bold'}}>
-                                  ⚠️ {solution.status_complement}
-                                </div>
-                              )}
-                              <ul>
-                              {Object.entries(solution)
-                                  .filter(([key]) => !['graph_base64', 'iterations', 'error', 'integer_solution', 'dual_solution', 'status_complement', 'tableau', 'basis'].includes(key)) 
-                                  .map(([key, value]) => (
-                                  <li key={key}>
-                                      <strong>{key}:</strong> {typeof value === 'number' ? value.toFixed(4) : value}
-                                  </li>
-                                  ))
-                              }
-                              </ul>
-                          </div>
-                        )}
+                            {isDualMode && (
+                            <div className="dual-solution-summary" style={{background: '#e0f2fe', padding:'15px', borderRadius:'8px', marginBottom: '20px'}}>
+                                <h3 style={{color: '#0369a1'}}>Variáveis Primal (do Dual):</h3>
+                                <ul>
+                                    <li><strong>Z:</strong> {solution.Z}</li>
+                                    {Object.entries(solution).filter(([k]) => !ignoredKeys.includes(k)).map(([k,v]) => <li key={k}><strong>{k}:</strong> {v}</li>)}
+                                </ul>
+                            </div>
+                            )}
 
-                        {/* 2. Solução Dual */}
-                        {isDualMode && (
-                          <div className="dual-solution-summary" style={{marginBottom: '20px', padding: '10px', background: '#e0f2fe', borderRadius: '6px', border: '1px solid #bae6fd'}}>
-                            <h3 style={{color: '#0369a1'}}>☯️ Variáveis do Primal (Resultado do Dual):</h3>
-                            <ul>
-                              {Object.entries(solution)
-                                .filter(([key]) => !['graph_base64', 'iterations', 'error', 'integer_solution', 'dual_solution', 'status_complement', 'tableau', 'basis'].includes(key)) 
-                                .map(([key, value]) => (
-                                <li key={key}>
-                                  <strong>{key}:</strong> {value}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* 3. Solução Inteira */}
-                        {solution.integer_solution && (
-                          <div className="integer-solution-summary" style={{marginBottom: '20px', padding: '10px', background: '#ffedd5', border: '1px solid #fed7aa', borderRadius: '6px'}}>
-                            <h3 style={{color: '#c2410c'}}>★ Solução Inteira Ótima (Bônus):</h3>
-                            <ul>
-                              {Object.entries(solution.integer_solution)
-                                .filter(([key]) => key !== 'iterations' && key !== 'status' && key !== 'error' && key !== 'tableau' && key !== 'basis' && key !== 'dual_solution') 
-                                .map(([key, value]) => (
-                                <li key={key}>
-                                  <strong>{key}:</strong> {value}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* 4. Gráfico Animado (COM REPLAY REAL VIA BLOB URL) */}
-                        {graphUrl && (
-                          <div className="graph-container">
-                            <h4 style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                              Visualização Gráfica (Animada)
-                              <span style={{fontSize:'0.7em', fontWeight:'normal', color:'#666', cursor:'pointer'}} onClick={handleReplayGraph}>
-                                [Clique para Replay ↻]
-                              </span>
-                            </h4>
-                            <img 
-                              src={graphUrl} 
-                              alt="Gráfico da Solução" 
-                              onClick={handleReplayGraph}
-                              style={{cursor: 'pointer', display: 'block', maxWidth: '100%', border: '1px solid #eee'}}
-                              title="Clique para ver a animação novamente"
-                            />
-                            <p style={{fontSize: '0.8rem', color: '#666', fontStyle: 'italic', marginTop: '5px'}}>
-                              Legenda: Verde = Ótimo Contínuo | Laranja = Ótimo Inteiro | Tracejada = Função Objetivo
-                            </p>
-                          </div>
-                        )}
-
-                        {/* 5. Tabelas */}
-                        {solution.iterations && solution.iterations.length > 0 && (
-                          <div className="iterations-container">
-                            <h3>Passo a Passo (Tableaus)</h3>
-                            {solution.iterations.map((step, idx) => (
-                              <div key={idx} className="iteration-card">
-                                <div className="iteration-header">
-                                  <span>{step.phase || 'Iteração'} - Passo {step.iteration}</span>
-                                  {step.pivot_info && (
-                                      <span style={{fontSize: '0.85em', color: '#555'}}>
-                                          Pivô: Linha {step.pivot_info.row}, Col {step.pivot_info.col}
-                                      </span>
-                                  )}
-                                </div>
-                                <div style={{overflowX: 'auto'}}>
-                                  <table className="tableau-table">
-                                    <thead>
-                                      <tr>
-                                        <th>Base</th>
-                                        {step.headers.map((header, h_idx) => (
-                                          <th key={h_idx}>{header}</th>
+                            {/* Gráfico */}
+                            {graphUrl && (
+                            <div className="graph-container">
+                                <h4 onClick={handleReplayGraph} style={{cursor:'pointer'}}>Ver Gráfico (Replay ↻)</h4>
+                                <img src={graphUrl} onClick={handleReplayGraph} alt="Gráfico" style={{maxWidth:'100%', cursor:'pointer'}} />
+                            </div>
+                            )}
+                            
+                            {/* --- TABELAS RESTAURADAS AQUI --- */}
+                            {solution.iterations && solution.iterations.length > 0 && (
+                                <div className="iterations-container">
+                                    <h3>Passo a Passo (Tableaus)</h3>
+                                    <div style={{maxHeight:'400px', overflowY:'auto', border: '1px solid #eee'}}>
+                                        {solution.iterations.map((step, idx) => (
+                                            <div key={idx} className="iteration-card">
+                                                <div className="iteration-header">
+                                                    <span>{step.phase} - Passo {step.iteration}</span>
+                                                    {step.pivot_info && <span style={{fontSize:'0.8em', color:'#666'}}> Pivô: [{step.pivot_info.row}, {step.pivot_info.col}]</span>}
+                                                </div>
+                                                <div style={{overflowX: 'auto'}}>
+                                                    <table className="tableau-table">
+                                                        <thead>
+                                                            <tr><th>Base</th>{step.headers.map((h,i)=><th key={i}>{h}</th>)}</tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {step.rows.map((r,i)=>(
+                                                                <tr key={i}>
+                                                                    <td style={{fontWeight:'bold', background:'#f8fafc'}}>{r.label}</td>
+                                                                    {r.values.map((v,j)=>(
+                                                                        <td key={j} className={step.pivot_info && step.pivot_info.row===i && step.pivot_info.col===j ? 'highlight-pivot' : ''}>{v}</td>
+                                                                    ))}
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
                                         ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {step.rows.map((row, r_idx) => (
-                                        <tr key={r_idx}>
-                                          <td style={{fontWeight: 'bold', background: '#f8fafc'}}>{row.label}</td>
-                                          {row.values.map((val, v_idx) => (
-                                            <td key={v_idx} 
-                                                className={step.pivot_info && step.pivot_info.row === r_idx && step.pivot_info.col === v_idx ? 'highlight-pivot' : ''}>
-                                              {typeof val === 'number' ? val.toFixed(3) : val}
-                                            </td>
-                                          ))}
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                    </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
+                            )}
+                        </>
                         )}
-                      </>
+                    </div>
                     )}
-                  </div>
-                )}
-              </div>
-            </div>
+                </div>
+                </div>
+            )}
           </div>
 
-          <div className="action-bar">
-            <button type="submit" className="btn-solve" disabled={isLoading}>
-              {isLoading ? 'Resolvendo...' : 'Resolver'}
-            </button>
-          </div>
+          {/* --- ÁRVORE BRANCH & BOUND (LARGURA TOTAL) --- */}
+          {isBnBMode && solution && !solution.error && (
+            <div className="bnb-section">
+                <h2 style={{borderBottom:'1px solid #e2e8f0', paddingBottom:'10px', marginBottom:'20px'}}>Árvore de Decisão (Branch & Bound)</h2>
+                <div className="bnb-layout">
+                    <div className="tree-viewer">
+                        <div className="tree">
+                            <ul>
+                                {solution.tree_data && <TreeNodeCircle node={solution.tree_data} onSelect={setSelectedNode} />}
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="node-details-panel">
+                        {selectedNode ? (
+                            <div className="details-card">
+                                <h4>Detalhes do Nó {selectedNode.id}</h4>
+                                <hr style={{border:'0', borderTop:'1px solid #bae6fd', margin:'10px 0'}}/>
+                                {selectedNode.status === 'infeasible' ? (
+                                    <p style={{color:'red', fontWeight:'bold'}}>Solução Inviável</p>
+                                ) : (
+                                    <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                                        <div style={{fontSize:'1.2rem', fontWeight:'bold', color:'#0f172a'}}>
+                                            Z = {selectedNode.solution.Z}
+                                        </div>
+                                        <div style={{background:'white', padding:'10px', borderRadius:'6px'}}>
+                                            {Object.entries(selectedNode.solution)
+                                                .filter(([k]) => k.startsWith('x'))
+                                                .map(([k, v]) => (
+                                                    <div key={k} style={{display:'flex', justifyContent:'space-between'}}>
+                                                        <span>{k}:</span><strong>{typeof v === 'number' ? v.toFixed(4) : v}</strong>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                        <div style={{fontSize:'0.8rem', color:'#64748b', fontStyle:'italic'}}>
+                                            Status: {selectedNode.status === 'integer' ? 'Inteiro (Folha)' : 'Processando/Ramificado'}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : <p style={{color:'#94a3b8', textAlign:'center', marginTop:'50px'}}>Passe o mouse sobre um nó.</p>}
+                        <div style={{marginTop:'auto', paddingTop:'20px'}}>
+                            <div style={{background:'#dcfce7', padding:'15px', borderRadius:'8px', border:'1px solid #86efac'}}>
+                                <h4 style={{margin:'0 0 10px 0', color:'#166534'}}>Melhor Solução Inteira:</h4>
+                                {solution.integer_solution ? (
+                                    <ul style={{paddingLeft:'20px', margin:0}}>
+                                        <li><strong>Z:</strong> {solution.Z}</li>
+                                        {Object.entries(solution.integer_solution).filter(([k]) => k.startsWith('x')).map(([k,v]) => <li key={k}><strong>{k}:</strong> {v}</li>)}
+                                    </ul>
+                                ) : <span>Nenhuma encontrada.</span>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          )}
         </form>
       </main>
     </div>
