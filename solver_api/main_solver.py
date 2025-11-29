@@ -20,27 +20,76 @@ class LPSolver:
         self.is_minimization = (self.objective == 'min')
         if self.objective == 'min':
             self.objective_function *= -1
+            
+        # Controle global para poda
+        self.global_best_z = -np.inf
 
     def solve(self, method='auto', integer_mode=False):
         result = None
         
-        # --- SELEÇÃO DE MÉTODOS ---
+        # --- 1. MODO BRANCH AND BOUND (MÉTODO PRINCIPAL) ---
         if method == 'branch_and_bound':
-            root_solver = LPSolver(self.objective_function if not self.is_minimization else -self.objective_function, self.constraints, self.objective)
+            self.global_best_z = -np.inf
+            
+            # 1. Constrói a Árvore
             tree_data, best_int_sol = self._build_bnb_tree(self.constraints, "P0", 1)
-            return "Árvore Gerada", {'tree_data': tree_data, 'integer_solution': best_int_sol, 'Z': best_int_sol['Z'] if best_int_sol else "N/A"}
+            
+            status = "Árvore Gerada"
+            solution = {
+                'tree_data': tree_data,
+                'integer_solution': best_int_sol,
+                'Z': best_int_sol['Z'] if best_int_sol else "Não encontrado"
+            }
+            
+            # 2. Gera o Gráfico com o Ponto Inteiro (Se for 2D)
+            if self.num_vars == 2:
+                try:
+                    # Recalcula região viável do problema original (Raiz)
+                    eqs = []; inters = []
+                    for c, s, r in self.constraints: eqs.append(np.array(list(c)+[r], float))
+                    eqs+= [np.array([1,0,0], float), np.array([0,1,0], float)]
+                    for e1, e2 in combinations(eqs, 2):
+                        try: A=np.array([e1[:2],e2[:2]]); b=np.array([e1[2],e2[2]]); inters.append(np.linalg.solve(A,b))
+                        except: continue
+                    fps = [p for p in inters if all(np.dot(c,p)<=(r+1e-5) if s=='<=' else (np.dot(c,p)>=(r-1e-5) if s=='>=' else abs(np.dot(c,p)-r)<1e-5) for c,s,r in self.constraints) and all(p>=-1e-5)]
+                    
+                    # Filtra duplicatas
+                    unique_fps = []
+                    for p in fps:
+                        if not any(np.allclose(p, x, atol=1e-4) for x in unique_fps): unique_fps.append(p)
+                    
+                    # Encontra ótimo relaxado (Raiz)
+                    best_relaxed = None; best_val = -np.inf
+                    for p in unique_fps:
+                        v = np.dot(self.objective_function, p)
+                        if v > best_val: best_val = v; best_relaxed = p
+                    
+                    # Prepara o ponto inteiro para plotagem
+                    int_point = None
+                    if best_int_sol:
+                         int_point = [float(Fraction(best_int_sol.get(f'x{i+1}', '0'))) for i in range(self.num_vars)]
 
-        if method == 'dual': return self._solve_as_dual_problem()
+                    # Gera o gráfico
+                    solution['graph_base64'] = self._generate_graph_image(unique_fps, best_relaxed, int_point)
+                except Exception as e: 
+                    print(f"Erro no gráfico B&B: {e}")
+            
+            return status, solution
 
+        # --- 2. MODO DUAL ---
+        if method == 'dual':
+            return self._solve_as_dual_problem()
+
+        # --- 3. MÉTODOS PADRÃO ---
         if method == 'auto':
             if self.num_vars == 2: result = self._solve_graphical()
             elif any(c[1] in ['>=', '='] for c in self.constraints): result = self._solve_two_phase()
             else: result = self._solve_simplex_standard()
         elif method == 'graphical':
-            if self.num_vars != 2: return "Erro", {"error": "Gráfico apenas para 2 variáveis."}
+            if self.num_vars != 2: return "Método inválido", {"error": "Gráfico apenas para 2 variáveis."}
             result = self._solve_graphical()
         elif method == 'simplex':
-            if any(c[1] in ['>=', '='] for c in self.constraints): return "Erro", {"error": "Simplex Padrão não aceita >=."}
+            if any(c[1] in ['>=', '='] for c in self.constraints): return "Método inválido", {"error": "Use Big M para restrições >=."}
             result = self._solve_simplex_standard()
         elif method == 'two_phase': result = self._solve_two_phase()
         elif method == 'big_m': result = self._solve_big_m()
@@ -49,6 +98,7 @@ class LPSolver:
         if isinstance(result, tuple) and "error" in result[1]: return result
         status, solution = result
         
+        # Pós-processamento
         if 'tableau' in solution and 'basis' in solution:
             z_row = solution['tableau'][0, :-1]
             has_multiple = False
@@ -56,176 +106,115 @@ class LPSolver:
                 if abs(z_row[i]) < 1e-5 and i not in solution['basis']: has_multiple = True; break
             if has_multiple: solution['status_complement'] = "Soluções Múltiplas Identificadas"
 
-        if integer_mode and solution and 'x1' in solution:
-            try:
-                _, int_sol, int_point = self._solve_branch_and_bound_best_first()
-                if int_sol:
-                    solution['integer_solution'] = int_sol
-                    if self.num_vars == 2:
-                         eqs = []; inters = []
-                         for c, s, r in self.constraints: eqs.append(np.array(list(c)+[r], float))
-                         eqs+= [np.array([1,0,0], float), np.array([0,1,0], float)]
-                         for e1, e2 in combinations(eqs, 2):
-                             try: A=np.array([e1[:2],e2[:2]]); b=np.array([e1[2],e2[2]]); inters.append(np.linalg.solve(A,b))
-                             except: continue
-                         fps = [p for p in inters if all(np.dot(c,p)<=(r+1e-5) if s=='<=' else (np.dot(c,p)>=(r-1e-5) if s=='>=' else abs(np.dot(c,p)-r)<1e-5) for c,s,r in self.constraints) and all(p>=-1e-5)]
-                         unique_fps = []
-                         for p in fps:
-                             if not any(np.allclose(p, x, atol=1e-4) for x in unique_fps): unique_fps.append(p)
-                         best_relaxed = None; best_val = -np.inf
-                         for p in unique_fps:
-                             v = np.dot(self.objective_function, p)
-                             if v > best_val: best_val = v; best_relaxed = p
-                         solution['graph_base64'] = self._generate_graph_image(unique_fps, best_relaxed, int_point)
-            except: pass
-
+        # Limpeza
         if 'tableau' in solution: del solution['tableau']
         if 'basis' in solution: del solution['basis']
+
         return status, solution
 
-    # --- ÁRVORE ---
+    # --- ÁRVORE B&B RECURSIVA (ESTRATÉGIA: MOST FRACTIONAL) ---
     def _build_bnb_tree(self, constraints, node_id, depth):
-        solver = LPSolver(self.objective_function if self.objective == 'max' else -self.objective_function, constraints, self.objective)
+        # 1. Resolve o nó
+        solver = LPSolver(
+            self.objective_function if self.objective == 'max' else -self.objective_function,
+            constraints,
+            self.objective
+        )
         status, solution = solver._solve_big_m()
-        node = {'id': node_id, 'solution': solution, 'children': [], 'status': 'processing', 'branch_info': ''}
 
+        node = {
+            'id': node_id,
+            'solution': solution,
+            'children': [],
+            'status': 'processing', 
+            'branch_info': ''
+        }
+
+        # 2. Inviável?
         if not solution or 'error' in solution or 'Z' not in solution:
-            node['status'] = 'infeasible'; return node, None
+            node['status'] = 'infeasible'
+            return node, None
 
-        try: zs = solution['Z']; current_z = float(Fraction(zs)) if '/' in zs else float(zs)
+        # Pega Z
+        try:
+            zs = solution['Z']
+            current_z = float(Fraction(zs)) if '/' in zs else float(zs)
         except: current_z = -np.inf
+
+        # 3. Poda por Limite (Bound)
+        if current_z <= self.global_best_z + 1e-6:
+            node['status'] = 'pruned'
+            return node, None
+
+        # 4. Escolhe Variável de Ramificação (Mais Fracionada)
+        all_integer = True
+        branch_idx = -1
+        branch_val = 0
+        max_fraction = -1 # Distância máxima para o inteiro mais próximo (perto de 0.5)
         
-        all_integer = True; branch_idx = -1; max_dist = -1; branch_val = 0
         for i in range(self.num_vars):
-            val_str = solution.get(f'x{i+1}', '0'); val = float(Fraction(val_str)) if '/' in val_str else float(val_str)
+            val_str = solution.get(f'x{i+1}', '0')
+            val = float(Fraction(val_str)) if '/' in val_str else float(val_str)
+            
             dist = abs(val - round(val))
             if dist > 1e-4:
                 all_integer = False
-                if dist > max_dist: max_dist = dist; branch_idx = i; branch_val = val
-
+                # Estratégia Otimizada: Escolhe a mais fracionada
+                if dist > max_fraction:
+                    max_fraction = dist
+                    branch_idx = i
+                    branch_val = val
+        
         best_local_sol = None
+
         if all_integer:
-            node['status'] = 'integer'; best_local_sol = solution
+            node['status'] = 'integer'
+            if current_z > self.global_best_z:
+                self.global_best_z = current_z
+                best_local_sol = solution
         else:
-            node['status'] = 'branched'; fl = math.floor(branch_val); cl = math.ceil(branch_val)
-            nc = [0.0]*self.num_vars; nc[branch_idx] = 1.0
-            if depth < 8:
-                c1 = copy.deepcopy(constraints); c1.append((nc, '<=', float(fl)))
-                child1, sol1 = self._build_bnb_tree(c1, f"{node_id}.1", depth+1); child1['branch_info'] = f"x{branch_idx+1} <= {fl}"
+            node['status'] = 'branched'
+            fl = math.floor(branch_val)
+            cl = math.ceil(branch_val)
+            nc = [0.0] * self.num_vars
+            nc[branch_idx] = 1.0
+
+            if depth < 10: # Limite de profundidade
+                # Filho 1 (<=)
+                c1 = copy.deepcopy(constraints)
+                c1.append((nc, '<=', float(fl)))
+                child1, sol1 = self._build_bnb_tree(c1, f"{node_id}.1", depth+1)
+                child1['branch_info'] = f"x{branch_idx+1} <= {fl}"
                 node['children'].append(child1)
-                c2 = copy.deepcopy(constraints); c2.append((nc, '>=', float(cl)))
-                child2, sol2 = self._build_bnb_tree(c2, f"{node_id}.2", depth+1); child2['branch_info'] = f"x{branch_idx+1} >= {cl}"
+
+                # Filho 2 (>=)
+                c2 = copy.deepcopy(constraints)
+                c2.append((nc, '>=', float(cl)))
+                child2, sol2 = self._build_bnb_tree(c2, f"{node_id}.2", depth+1)
+                child2['branch_info'] = f"x{branch_idx+1} >= {cl}"
                 node['children'].append(child2)
-                def gz(s): return float(Fraction(s['Z'])) if s and '/' in s['Z'] else (float(s['Z']) if s else -np.inf)
-                best_local_sol = sol1 if gz(sol1) > gz(sol2) else sol2
+
+                # Propaga melhor solução encontrada nos filhos
+                def get_z(s):
+                    if not s: return -np.inf
+                    z = s['Z']
+                    return float(Fraction(z)) if '/' in z else float(z)
+                
+                z1 = get_z(sol1)
+                z2 = get_z(sol2)
+                best_local_sol = sol1 if z1 > z2 else sol2
+
         return node, best_local_sol
 
-    def _solve_branch_and_bound_best_first(self):
-        best_sol = None; best_z = -np.inf; best_pt = None
-        queue = [(np.inf, copy.deepcopy(self.constraints))]; iterations = 0
-        while queue and iterations < 200:
-            queue.sort(key=lambda x: x[0], reverse=True); _, curr = queue.pop(0); iterations += 1
-            sub = LPSolver(self.objective_function if self.objective=='max' else -self.objective_function, curr, self.objective)
-            _, sol = sub._solve_big_m()
-            if not sol or 'error' in sol: continue
-            try: zs = sol['Z']; z = float(Fraction(zs)) if '/' in zs else float(zs)
-            except: continue
-            if z <= best_z + 1e-6: continue
-            all_int = True; pt = []
-            for i in range(self.num_vars):
-                v = float(Fraction(sol.get(f'x{i+1}', '0'))); pt.append(v)
-                if abs(v - round(v)) > 1e-4: all_int = False
-            if all_int:
-                if z > best_z: best_z = z; best_sol = sol; best_pt = pt
-            else:
-                # Lógica simplificada para encontrar ramificação
-                idx = -1; val = 0; max_d = -1
-                for i, v in enumerate(pt):
-                    if abs(v-round(v)) > 1e-4 and abs(v-round(v)) > max_d: idx=i; val=v; max_d=abs(v-round(v))
-                fl = math.floor(val); cl = math.ceil(val); nc = [0.0]*self.num_vars; nc[idx] = 1.0
-                r1 = copy.deepcopy(curr); r1.append((nc, '<=', float(fl))); queue.append((z, r1))
-                r2 = copy.deepcopy(curr); r2.append((nc, '>=', float(cl))); queue.append((z, r2))
-        return "Ok", best_sol, best_pt
-
-    # --- GERAÇÃO DE GRÁFICO ANIMADO (GIF) ---
-    def _generate_graph_image(self, feasible_points, best_point, int_point=None):
-        all_points = feasible_points + ([tuple(best_point)] if best_point is not None else [])
-        if not all_points: return None
-        
-        max_x = max(p[0] for p in all_points) * 1.2 if all_points else 10
-        max_y = max(p[1] for p in all_points) * 1.2 if all_points else 10
-        limit = max(max_x, max_y, 10)
-        x_vals = np.linspace(0, limit, 200)
-
-        c1, c2 = self.objective_function
-        z_opt = np.dot(self.objective_function, best_point) if best_point is not None else 0
-        
-        frames = []; num_frames = 15 # Mais frames para suavidade
-        
-        try:
-            plt.close('all')
-            # Loop da animação: Vai de 0 até num_frames + pausa
-            for i in range(num_frames + 6): 
-                fig, ax = plt.subplots(figsize=(5, 5))
-                ax.set_xlim(-0.5, limit); ax.set_ylim(-0.5, limit); ax.set_xlabel("x1"); ax.set_ylabel("x2")
-                
-                # Restrições
-                for coeffs, sign, rhs in self.constraints:
-                    cc1, cc2 = coeffs
-                    if cc2 != 0:
-                        y_vals = (rhs - cc1 * x_vals) / cc2; y_vals = np.clip(y_vals, -limit, limit*2)
-                        ax.plot(x_vals, y_vals, label=f'{cc1}x1 + {cc2}x2 {sign} {rhs}')
-                    elif cc1 != 0: ax.axvline(x=rhs/cc1, color='orange', linestyle='--')
-
-                # Região
-                if len(feasible_points) >= 3:
-                    pts = np.array(feasible_points); cent = pts.mean(axis=0)
-                    feasible_points.sort(key=lambda p: np.arctan2(p[1] - cent[1], p[0] - cent[0]))
-                    ax.add_patch(plt.Polygon(feasible_points, color='skyblue', alpha=0.4))
-
-                # Pontos
-                if len(feasible_points) > 0: 
-                    fp = np.array(feasible_points); ax.plot(fp[:, 0], fp[:, 1], 'ro', markersize=5)
-                if best_point is not None: ax.plot(best_point[0], best_point[1], 'go', markersize=8, zorder=5, label='Ótimo')
-                if int_point is not None: ax.plot(int_point[0], int_point[1], 'o', color='darkorange', markersize=8, zorder=6, label='Inteiro')
-
-                ax.grid(True, linestyle='--', alpha=0.5)
-                # LEGENDA EM TODOS OS QUADROS
-                ax.legend(loc='best', fontsize='x-small', framealpha=0.8)
-
-                # RETA Z ANIMADA
-                # Garante que o último frame seja exatamente 1.0 (100%)
-                progress = min(i / float(num_frames), 1.0)
-                z_curr = z_opt * progress
-                
-                # Label dinâmica com o valor de Z
-                disp_z = z_curr * (-1 if self.objective == 'min' else 1)
-                label_z = f'Z={disp_z:.1f}'
-                
-                if c2 != 0:
-                    y_obj = (z_curr - c1 * x_vals) / c2
-                    y_obj = np.clip(y_obj, -limit, limit*2)
-                    ax.plot(x_vals, y_obj, color='navy', linestyle='--', linewidth=2, label=label_z)
-                elif c1 != 0:
-                    ax.axvline(x=z_curr/c1, color='navy', linestyle='--', linewidth=2, label=label_z)
-
-                buf = io.BytesIO(); plt.savefig(buf, format='png', bbox_inches='tight', dpi=80)
-                buf.seek(0); frames.append(PILImage.open(buf)); plt.close(fig)
-
-            buf_gif = io.BytesIO()
-            # Loop=0 no Pillow significa infinito, omitir geralmente significa 1 vez.
-            # Vamos garantir que toque uma vez e pare.
-            frames[0].save(buf_gif, format='GIF', save_all=True, append_images=frames[1:], duration=100)
-            buf_gif.seek(0); return base64.b64encode(buf_gif.read()).decode('utf-8')
-        except: return None
-
+    # --- OUTROS MÉTODOS (DUAL, GRAFICO, ETC) ---
     def _solve_as_dual_problem(self):
         try:
             A = np.array([c[0] for c in self.constraints]); A_T = A.T.tolist()
             c_p = self.objective_function if not self.is_minimization else -self.objective_function; new_rhs = c_p.tolist()
             b_p = [c[2] for c in self.constraints]; new_obj = b_p; new_cons = []
             for i, rc in enumerate(A_T): new_cons.append((rc, '>=', new_rhs[i]))
-            ds = LPSolver(new_obj, new_cons, objective='min'); st, sol = ds.solve(method='big_m')
+            ds = LPSolver(new_obj, new_cons, objective='min')
+            st, sol = ds.solve(method='big_m')
             if 'iterations' in sol: 
                 for s in sol['iterations']: s['phase'] = f"Dual (Big M) - {s['phase']}"
             return f"Solução do Dual ({st})", sol
@@ -239,10 +228,61 @@ class LPSolver:
             return f"{frac.numerator}/{frac.denominator}"
         except: return str(round(value, 4))
 
+    def _generate_graph_image(self, feasible_points, best_point, int_point=None):
+        all_points = feasible_points + ([tuple(best_point)] if best_point is not None else [])
+        if not all_points: return None
+        max_x = max(p[0] for p in all_points) * 1.2 if all_points else 10
+        max_y = max(p[1] for p in all_points) * 1.2 if all_points else 10
+        limit = max(max_x, max_y, 10)
+        x_vals = np.linspace(0, limit, 200) 
+        c1_obj, c2_obj = self.objective_function
+        z_opt = np.dot(self.objective_function, best_point) if best_point is not None else 0
+        frames = []; num_frames = 12 
+        try:
+            plt.close('all')
+            for i in range(num_frames + 5): 
+                fig, ax = plt.subplots(figsize=(5, 5))
+                ax.set_xlim(-0.5, limit); ax.set_ylim(-0.5, limit); ax.set_xlabel("x1"); ax.set_ylabel("x2")
+                for coeffs, sign, rhs in self.constraints:
+                    c1, c2 = coeffs
+                    if c2 != 0:
+                        y_vals = (rhs - c1 * x_vals) / c2
+                        y_vals = np.clip(y_vals, -limit, limit*2)
+                        ax.plot(x_vals, y_vals, label=f'{c1}x1 + {c2}x2 {sign} {rhs}')
+                    elif c1 != 0: ax.axvline(x=rhs/c1, color='orange', linestyle='--')
+
+                if len(feasible_points) >= 3:
+                    pts = np.array(feasible_points); cent = pts.mean(axis=0)
+                    feasible_points.sort(key=lambda p: np.arctan2(p[1] - cent[1], p[0] - cent[0]))
+                    ax.add_patch(plt.Polygon(feasible_points, color='skyblue', alpha=0.4))
+
+                if len(feasible_points) > 0: 
+                    fp = np.array(feasible_points); ax.plot(fp[:, 0], fp[:, 1], 'ro', markersize=5)
+                if best_point is not None: ax.plot(best_point[0], best_point[1], 'go', markersize=8, zorder=5, label='Ótimo')
+                if int_point is not None: ax.plot(int_point[0], int_point[1], 'o', color='darkorange', markersize=8, zorder=6, label='Inteiro')
+
+                ax.grid(True, linestyle='--', alpha=0.5)
+                ax.legend(loc='best', fontsize='x-small', framealpha=0.6)
+
+                progress = min(i / num_frames, 1.0); z_curr = z_opt * progress
+                if c2_obj != 0:
+                    y_obj = (z_curr - c1_obj * x_vals) / c2_obj; y_obj = np.clip(y_obj, -limit, limit*2)
+                    ax.plot(x_vals, y_obj, 'k--', linewidth=1.5, label='Z')
+                elif c1_obj != 0: ax.axvline(x=z_curr/c1_obj, color='k', linestyle='--', linewidth=1.5)
+
+                buf = io.BytesIO(); plt.savefig(buf, format='png', bbox_inches='tight', dpi=80)
+                buf.seek(0); frames.append(PILImage.open(buf)); plt.close(fig)
+
+            buf_gif = io.BytesIO()
+            frames[0].save(buf_gif, format='GIF', save_all=True, append_images=frames[1:], duration=100)
+            buf_gif.seek(0); return base64.b64encode(buf_gif.read()).decode('utf-8')
+        except: return None
+
     def _solve_graphical(self):
         eqs=[]; 
         for c,_,r in self.constraints: eqs.append(np.array(list(c)+[r], float))
-        eqs+=[np.array([1,0,0],float), np.array([0,1,0],float)]; inters=[]
+        eqs+=[np.array([1,0,0],float), np.array([0,1,0],float)]
+        inters=[]
         for e1,e2 in combinations(eqs,2):
             try: A=np.array([e1[:2],e2[:2]]); b=np.array([e1[2],e2[2]]); inters.append(np.linalg.solve(A,b))
             except: continue
