@@ -1,4 +1,3 @@
-/* BnB.css */
 .bnb-section {
     width: 100%;
     animation: fadeIn 0.5s ease-out;
@@ -11,7 +10,6 @@
     grid-template-columns: 2fr 1fr;
     gap: 24px;
     height: 600px;
-    /* Fixed height for scrollable areas */
 }
 
 @media (max-width: 1000px) {
@@ -21,7 +19,6 @@
     }
 }
 
-/* --- Tree Viewer --- */
 .tree-viewer {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -50,7 +47,6 @@
     transition: all 0.5s;
 }
 
-/* Connectors */
 .tree li::before,
 .tree li::after {
     content: '';
@@ -101,7 +97,6 @@
     height: 20px;
 }
 
-/* Nodes */
 .tree-node-circle {
     width: 50px;
     height: 50px;
@@ -129,7 +124,6 @@
     color: var(--text-primary);
 }
 
-/* Status Colors */
 .tree-node-circle.integer {
     background: rgba(16, 185, 129, 0.2);
     border-color: #10b981;
@@ -168,7 +162,6 @@
     white-space: nowrap;
 }
 
-/* --- Node Details Panel --- */
 .node-details-panel {
     display: flex;
     flex-direction: column;

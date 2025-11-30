@@ -7,7 +7,6 @@ const ResultSummary = ({ solution, isDualMode }) => {
 
     const ignoredKeys = ['graph_base64', 'iterations', 'error', 'integer_solution', 'dual_solution', 'status_complement', 'tableau', 'basis', 'tree_data', 'Z', 'status'];
 
-    // Determine status badge color/text
     const isFeasible = !solution.status_complement && !solution.error;
     const statusColor = isFeasible ? 'var(--success)' : 'var(--warning)';
     const statusText = solution.status || (isFeasible ? 'ÓTIMA' : 'INVIÁVEL');
@@ -15,7 +14,6 @@ const ResultSummary = ({ solution, isDualMode }) => {
     return (
         <div className="solution-summary-container">
 
-            {/* --- Optimal Solution Card --- */}
             <div className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid var(--accent-primary)' }}>
                 <div style={{
                     padding: '16px 24px',

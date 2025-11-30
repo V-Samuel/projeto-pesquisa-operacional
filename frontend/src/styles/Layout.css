@@ -1,15 +1,11 @@
-/* Layout.css */
 .app-container {
     display: flex;
     height: 100vh;
-    /* Fixed height to viewport */
     overflow: hidden;
-    /* Prevent body scroll */
     background-color: var(--bg-primary);
     color: var(--text-primary);
 }
 
-/* --- Sidebar --- */
 .sidebar {
     width: 280px;
     background-color: var(--bg-primary);
@@ -18,9 +14,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    /* Full height of container */
     overflow-y: auto;
-    /* Scrollable sidebar if content overflows */
     z-index: 50;
     transition: transform 0.3s ease-in-out;
 }
@@ -31,7 +25,6 @@
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
-    /* Prevent header from shrinking */
 }
 
 .logo-icon {
@@ -70,9 +63,7 @@
 
 .module-nav {
     flex: 1;
-    /* Take available space */
     overflow-y: auto;
-    /* Scrollable nav if needed */
 }
 
 .module-nav ul {
@@ -134,7 +125,6 @@
     color: var(--text-primary);
 }
 
-/* --- Mobile Toggle Buttons --- */
 .mobile-menu-toggle {
     display: none;
     position: fixed;
@@ -171,22 +161,17 @@
     backdrop-filter: blur(2px);
 }
 
-/* --- Main Content --- */
 .main-content {
     flex: 1;
     padding: 40px;
     overflow-y: auto;
-    /* Enable independent scrolling */
     height: 100%;
-    /* Full height of container */
 }
 
-/* --- Mobile Responsiveness --- */
 @media (max-width: 768px) {
     .app-container {
         flex-direction: column;
         height: 100vh;
-        /* Ensure full height on mobile too */
     }
 
     .mobile-menu-toggle {
@@ -218,12 +203,10 @@
 
     .sidebar-footer {
         display: block;
-        /* Show footer in mobile menu */
     }
 
     .main-content {
         padding: 80px 20px 20px 20px;
-        /* Add top padding for the toggle button */
         width: 100%;
     }
 

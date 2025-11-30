@@ -43,7 +43,6 @@ const SolverForm = ({
     return (
         <div className="input-section">
 
-            {/* --- Problem Configuration --- */}
             <div className="card" style={{ marginBottom: '24px' }}>
                 <div className="form-section-title">
                     <FaCalculator style={{ color: 'var(--accent-primary)' }} />
@@ -92,7 +91,6 @@ const SolverForm = ({
                     </div>
 
                     <div>
-                        {/* Placeholder for visual balance, or could be variable count display */}
                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', fontWeight: '600' }}>VARIÁVEIS</label>
                         <div style={{ color: 'var(--text-primary)', fontWeight: 'bold', fontSize: '1.1rem', padding: '8px 0' }}>
                             {objectiveCoeffs.length}
@@ -108,7 +106,6 @@ const SolverForm = ({
                 </div>
             </div>
 
-            {/* --- Objective Function --- */}
             <div className="card" style={{ marginBottom: '24px', background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.6) 0%, rgba(15, 23, 42, 1) 100%)' }}>
                 <div className="form-section-title">
                     <FaBullseye style={{ color: 'var(--accent-secondary)' }} />
@@ -142,7 +139,6 @@ const SolverForm = ({
                 </div>
             </div>
 
-            {/* --- Constraints --- */}
             <div className="card">
                 <div className="form-section-title">
                     <FaListOl style={{ color: 'var(--warning)' }} />

@@ -7,7 +7,7 @@ import GraphViewer from '../features/results/GraphViewer';
 import TreeViewer from '../features/bnb/TreeViewer';
 import NodeDetails from '../features/bnb/NodeDetails';
 import { solveProblem } from '../services/api';
-import '../styles/Layout.css'; // Ensure layout styles are applied if needed locally
+import '../styles/Layout.css';
 
 const SolverPage = () => {
     const { method } = useParams();
@@ -15,7 +15,6 @@ const SolverPage = () => {
 
     const activeModule = method || 'auto';
 
-    // State
     const [objective, setObjective] = useState('max');
     const [objectiveCoeffs, setObjectiveCoeffs] = useState(['', '']);
     const [constraints, setConstraints] = useState([{ coefficients: ['', ''], sign: '<=', rhs: '' }]);
@@ -24,17 +23,14 @@ const SolverPage = () => {
     const [statusMessage, setStatusMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Visual State
     const [selectedNode, setSelectedNode] = useState(null);
 
-    // Effect to reset solution when module changes
     useEffect(() => {
         setSolution(null);
         setStatusMessage('');
         setSelectedNode(null);
     }, [activeModule]);
 
-    // Effect to select root node in BnB
     useEffect(() => {
         if (solution && solution.tree_data) {
             setSelectedNode(solution.tree_data);
@@ -55,9 +51,6 @@ const SolverPage = () => {
         setIsLoading(true);
         setStatusMessage('Resolvendo...');
 
-        // Map URL method to backend method name if necessary
-        // URL: simplex, branch-and-bound, etc.
-        // Backend expects: simplex, branch_and_bound, etc.
         const backendMethod = activeModule.replace(/-/g, '_');
 
         const problemData = {
@@ -96,7 +89,6 @@ const SolverPage = () => {
 
     return (
         <div className="workspace">
-            {/* Input Section */}
             <SolverForm
                 objective={objective} setObjective={setObjective}
                 objectiveCoeffs={objectiveCoeffs} setObjectiveCoeffs={setObjectiveCoeffs}
@@ -106,7 +98,6 @@ const SolverPage = () => {
                 isLoading={isLoading}
             />
 
-            {/* Results Section (Non-BnB) */}
             {!isBnBMode && (solution || statusMessage) && (
                 <div className="output-section">
                     <h2>Resultado</h2> <hr />
@@ -125,7 +116,6 @@ const SolverPage = () => {
                 </div>
             )}
 
-            {/* BnB Section */}
             {isBnBMode && solution && !solution.error && (
                 <div className="bnb-section">
                     <h2 style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '20px' }}>Árvore de Decisão (Branch & Bound)</h2>
@@ -134,8 +124,8 @@ const SolverPage = () => {
                         <NodeDetails
                             selectedNode={selectedNode}
                             solution={solution}
-                            graphUrl={null} // Graph logic handled inside NodeDetails if needed or passed down
-                            onReplayGraph={() => { }} // Placeholder if needed
+                            graphUrl={null}
+                            onReplayGraph={() => { }}
                         />
                     </div>
                 </div>
