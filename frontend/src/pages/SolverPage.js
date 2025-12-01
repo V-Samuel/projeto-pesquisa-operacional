@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { base64ToBlob } from '../utils/blob';
 import SolverForm from '../features/solver/SolverForm';
 import ResultSummary from '../features/results/ResultSummary';
 import TableauViewer from '../features/results/TableauViewer';
@@ -24,6 +25,7 @@ const SolverPage = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const [selectedNode, setSelectedNode] = useState(null);
+    const [graphUrl, setGraphUrl] = useState(null);
 
     useEffect(() => {
         setSolution(null);
@@ -35,7 +37,25 @@ const SolverPage = () => {
         if (solution && solution.tree_data) {
             setSelectedNode(solution.tree_data);
         }
+        if (solution && solution.graph_base64) {
+            const blob = base64ToBlob(solution.graph_base64);
+            const url = URL.createObjectURL(blob);
+            setGraphUrl(url);
+            return () => URL.revokeObjectURL(url);
+        } else {
+            setGraphUrl(null);
+        }
     }, [solution]);
+
+    const handleReplayGraph = () => {
+        if (solution && solution.graph_base64) {
+            setGraphUrl(null);
+            setTimeout(() => {
+                const blob = base64ToBlob(solution.graph_base64);
+                setGraphUrl(URL.createObjectURL(blob));
+            }, 10);
+        }
+    };
 
     const translateStatus = (status) => {
         if (!status) return '';
@@ -124,8 +144,8 @@ const SolverPage = () => {
                         <NodeDetails
                             selectedNode={selectedNode}
                             solution={solution}
-                            graphUrl={null}
-                            onReplayGraph={() => { }}
+                            graphUrl={graphUrl}
+                            onReplayGraph={handleReplayGraph}
                         />
                     </div>
                 </div>

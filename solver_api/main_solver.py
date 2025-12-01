@@ -352,4 +352,5 @@ class LPSolver:
                 if self.objective=='min': v*=-1
                 ds[f'y{i+1}']=self._to_fraction_str(v)
         s['dual_solution']=ds; s['tableau']=t; s['basis']=b
+        
         return s

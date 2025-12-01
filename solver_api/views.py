@@ -23,10 +23,9 @@ def solve_problem(request):
         )
 
         method_from_frontend = data.get('method', 'auto')
-        # NOVO: Ler a opção de solução inteira
         integer_mode = data.get('integer_mode', False)
 
-        # Passamos a opção para o solver
+
         status_msg, solution = solver.solve(method=method_from_frontend, integer_mode=integer_mode)
 
         if solution:

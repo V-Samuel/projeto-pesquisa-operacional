@@ -76,7 +76,7 @@ const NodeDetails = ({ selectedNode, solution, graphUrl, onReplayGraph }) => {
                 <div style={{ marginTop: '20px' }}>
                     <div style={{ background: 'var(--bg-secondary)', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
                         <h4 onClick={onReplayGraph} style={{ margin: '0 0 10px 0', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
-                            📈 Gráfico Inteiro <span style={{ fontSize: '0.7em', color: 'var(--text-secondary)' }}>↺</span>
+                            Gráfico Inteiro <span style={{ fontSize: '0.7em', color: 'var(--text-secondary)' }}>↺</span>
                         </h4>
                         <img
                             src={graphUrl}
@@ -93,5 +93,6 @@ const NodeDetails = ({ selectedNode, solution, graphUrl, onReplayGraph }) => {
         </div>
     );
 };
+
 
 export default NodeDetails;
