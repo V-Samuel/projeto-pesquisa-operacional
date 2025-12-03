@@ -29,7 +29,7 @@ class LPSolver:
         
         # --- 1. MODO BRANCH AND BOUND (MÉTODO PRINCIPAL) ---
         if method == 'branch_and_bound':
-            self.global_best_z = -np.inf
+            self.global_best_z = -np.inf if self.objective == 'max' else np.inf
             
             # 1. Constrói a Árvore
             tree_data, best_int_sol = self._build_bnb_tree(self.constraints, "P0", 1)
@@ -139,10 +139,16 @@ class LPSolver:
         try:
             zs = solution['Z']
             current_z = float(Fraction(zs)) if '/' in zs else float(zs)
-        except: current_z = -np.inf
+        except: current_z = -np.inf if self.objective == 'max' else np.inf
 
         # 3. Poda por Limite (Bound)
-        if current_z <= self.global_best_z + 1e-6:
+        prune = False
+        if self.objective == 'max':
+            if current_z <= self.global_best_z + 1e-6: prune = True
+        else:
+            if current_z >= self.global_best_z - 1e-6: prune = True
+            
+        if prune:
             node['status'] = 'pruned'
             return node, None
 
@@ -169,7 +175,13 @@ class LPSolver:
 
         if all_integer:
             node['status'] = 'integer'
-            if current_z > self.global_best_z:
+            is_better = False
+            if self.objective == 'max':
+                if current_z > self.global_best_z: is_better = True
+            else:
+                if current_z < self.global_best_z: is_better = True
+
+            if is_better:
                 self.global_best_z = current_z
                 best_local_sol = solution
         else:
@@ -196,13 +208,17 @@ class LPSolver:
 
                 # Propaga melhor solução encontrada nos filhos
                 def get_z(s):
-                    if not s: return -np.inf
+                    if not s: return -np.inf if self.objective == 'max' else np.inf
                     z = s['Z']
                     return float(Fraction(z)) if '/' in z else float(z)
                 
                 z1 = get_z(sol1)
                 z2 = get_z(sol2)
-                best_local_sol = sol1 if z1 > z2 else sol2
+                
+                if self.objective == 'max':
+                    best_local_sol = sol1 if z1 > z2 else sol2
+                else:
+                    best_local_sol = sol1 if z1 < z2 else sol2
 
         return node, best_local_sol
 
@@ -309,8 +325,36 @@ class LPSolver:
         return s, sol
     def _solve_two_phase(self):
         t,b=self._build_tableau(); s,t,b,h=self._simplex_iteration(t,b,"Simplex"); sol=self._get_solution_from_tableau(t,b); sol['iterations']=h; return s, sol
-    def _solve_big_m(self, m=1e6):
-        t,b=self._build_tableau(True,m); s,ft,fb,h=self._simplex_iteration(t,b,"Big M"); sol=self._get_solution_from_tableau(ft,fb); sol['iterations']=h; return s, sol
+    
+    def _solve_big_m(self, m_value=1e6):
+        tableau, basis = self._build_tableau(bm=True, m=m_value)
+        status, final_tableau, final_basis, history = self._simplex_iteration(tableau, basis, "Big M")
+
+        solution = self._get_solution_from_tableau(final_tableau, final_basis)
+        solution['iterations'] = history
+
+        # --- VERIFICAÇÃO RIGOROSA DE INVIABILIDADE ---
+        num_slack = sum(1 for c in self.constraints if c[1] == '<=')
+        num_surplus = sum(1 for c in self.constraints if c[1] == '>=')
+        num_artificial = sum(1 for c in self.constraints if c[1] in ['>=', '='])
+
+        art_start_col = self.num_vars + num_slack + num_surplus
+
+        is_infeasible = False
+        for i, var_idx in enumerate(final_basis):
+      
+            if var_idx >= art_start_col:
+                val = final_tableau[i+1, -1]
+               
+                if abs(val) > 1e-5:
+                    is_infeasible = True
+                    break
+
+        if is_infeasible:            
+            return "Problema Inviável", {"error": "Inviável (Artificial na base)"}
+        return status, solution
+
+
     def _simplex_iteration(self, t, b, p):
         h=[]; c=0; h.append(self._format_tableau_step(t,b,c,p))
         while np.any(t[0,:-1]<-1e-9):
